@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
+# Logs
+*.log
+
+# Secrets
+.env
+*.pem
+*.key
+certs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

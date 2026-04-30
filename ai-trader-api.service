@@ -1,0 +1,21 @@
+[Unit]
+Description=AI Trading Agent API Server
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/backend
+Environment=AGENT_DIR=/home/ubuntu/ai-trading-agent
+Environment=API_PORT=8443
+Environment=API_SSL_CERT_FILE=/home/ubuntu/backend/certs/api.crt
+Environment=API_SSL_KEY_FILE=/home/ubuntu/backend/certs/api.key
+# Set API_AUTH_TOKEN in systemd env or EnvironmentFile for protected endpoints.
+ExecStart=/home/ubuntu/ai-trading-agent/venv/bin/python /home/ubuntu/backend/api_server.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
