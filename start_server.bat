@@ -14,7 +14,7 @@ echo.
 echo Only accessible from the configured private network
 echo.
 
-set AGENT_DIR=B:\projects\ai-trading-agent
+if not defined AGENT_DIR set "AGENT_DIR=%~dp0..\nse-agent"
 set API_PORT=%API_PORT%
 python api_server.py
 pause
