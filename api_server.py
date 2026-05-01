@@ -1789,16 +1789,51 @@ async def get_chat_status(
 
 @app.websocket("/ws/logs")
 async def websocket_logs(websocket: WebSocket):
-    """Stream log file updates in real-time."""
-    token = websocket.headers.get("x-api-key") or websocket.query_params.get("token")
-    ok, _status, _msg = _is_api_key_valid(token)
-    if not ok:
-        await websocket.close(code=1008)
-        return
-    await log_broadcaster.connect(websocket)
+    """Stream log file updates in real-time.
+
+    Auth precedence (each option authoritative if present):
+      1. ``X-API-Key`` request header — preferred for native clients that can
+         set headers on the WS handshake.
+      2. First message after accept — JSON ``{"type":"auth","key":"..."}``.
+         Use this from browsers (which can't set custom WS headers).
+      3. ``?token=`` query string — DEPRECATED. Tokens in URLs leak via
+         reverse-proxy logs / tracing. Still accepted for back-compat with
+         older clients; will be removed in a future release.
+    """
+    AUTH_TIMEOUT_S = 5.0
+
+    # Path 1: header
+    header_token = websocket.headers.get("x-api-key")
+    # Path 3 (deprecated fallback): query string — kept for back-compat
+    query_token = websocket.query_params.get("token")
+    if header_token or query_token:
+        ok, _status, _msg = _is_api_key_valid(header_token or query_token)
+        if not ok:
+            await websocket.close(code=1008)
+            return
+        if query_token and not header_token:
+            logger.warning("WS auth via ?token= is deprecated; clients should send X-API-Key header or use first-message auth.")
+        await websocket.accept()
+    else:
+        # Path 2: first-message auth
+        await websocket.accept()
+        try:
+            raw = await asyncio.wait_for(websocket.receive_text(), timeout=AUTH_TIMEOUT_S)
+            payload = json.loads(raw)
+            if payload.get("type") != "auth":
+                await websocket.close(code=1008); return
+            ok, _status, _msg = _is_api_key_valid(payload.get("key"))
+            if not ok:
+                await websocket.close(code=1008); return
+        except (asyncio.TimeoutError, json.JSONDecodeError, WebSocketDisconnect):
+            try: await websocket.close(code=1008)
+            except Exception: pass
+            return
+
+    # WS already accepted above (one of the three auth paths). Just register.
+    log_broadcaster.clients.append(websocket)
     try:
         while True:
-            # Keep connection alive, receive any client messages (ping/pong)
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_text(json.dumps({"type": "pong"}))
