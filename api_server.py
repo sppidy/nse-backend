@@ -1580,6 +1580,10 @@ def get_recent_logs(lines: int = 500, date: str | None = None):
         today = datetime.now().strftime("%Y-%m-%d")
         target_date = date or today
 
+        import re
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", target_date):
+            raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
+
         # Determine which file to read
         if target_date == today:
             log_path = LOG_FILE  # Active log file
